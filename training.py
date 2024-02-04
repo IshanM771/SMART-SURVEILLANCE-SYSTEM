@@ -1,69 +1,58 @@
-
 import cv2
 import os
 import numpy as np
 from PIL import Image
+from tensorflow.keras import layers
+from tensorflow.keras import models
+from tensorflow.keras.applications import ResNet50
+from tensorflow.keras.optimizers import Adam
+from sklearn.model_selection import train_test_split
 
-
-#Method for checking existence of path i.e the directory
+# Method for checking existence of path i.e the directory
 def assure_path_exists(path):
     dir = os.path.dirname(path)
     if not os.path.exists(dir):
         os.makedirs(dir)
 
-# We will be using Local Binary Patterns Histograms for face recognization since it's quite accurate than the rest
-recognizer = cv2.face.LBPHFaceRecognizer_create()
-
+# We will be using a pre-trained ResNet50 model for feature extraction
+base_model = ResNet50(weights='imagenet', include_top=False, input_shape=(224, 224, 3))
+model = models.Sequential([
+    base_model,
+    layers.GlobalAveragePooling2D(),
+    layers.Dense(128, activation='relu'),
+    layers.Dropout(0.5),
+    layers.Dense(1, activation='sigmoid')  # Assuming binary classification
+])
 
 # For detecting the faces in each frame we will use Haarcascade Frontal Face default classifier of OpenCV
-detector = cv2.CascadeClassifier("haarcascade_frontalface_default.xml");
+detector = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
 
-#method getting the images and label data
-
-def getImagesAndLabels(path):
-
-    # Getting all file paths
-    imagePaths = [os.path.join(path,f) for f in os.listdir(path)] 
+# Method for loading and preprocessing images
+def load_images_and_labels(path):
+    images, labels = [], []
+    image_paths = [os.path.join(path, f) for f in os.listdir(path)]
     
-    #empty face sample initialised
-    faceSamples=[]
+    for image_path in image_paths:
+        PIL_img = Image.open(image_path).convert('RGB')
+        img_array = np.array(PIL_img.resize((224, 224))) / 255.0  # Resize to match ResNet input size
+        label = int(os.path.split(image_path)[-1].split(".")[1])
+        images.append(img_array)
+        labels.append(label)
     
-    # IDS for each individual
-    ids = []
-
-    # Looping through all the file path
-    for imagePath in imagePaths:
-
-        # converting image to grayscale
-        PIL_img = Image.open(imagePath).convert('L')
-
-        # converting PIL image to numpy array using array() method of numpy
-        img_numpy = np.array(PIL_img,'uint8')
-
-        # Getting the image id
-        id = int(os.path.split(imagePath)[-1].split(".")[1])
-
-        # Getting the face from the training images
-        faces = detector.detectMultiScale(img_numpy)
-
-        # Looping for each face and appending it to their respective IDs
-        for (x,y,w,h) in faces:
-
-            # Add the image to face samples
-            faceSamples.append(img_numpy[y:y+h,x:x+w])
-
-            # Add the ID to IDs
-            ids.append(id)
-
-    # Passing the face array and IDs array
-    return faceSamples,ids
+    return np.array(images), np.array(labels)
 
 # Getting the faces and IDs
-faces,ids = getImagesAndLabels('training_data')
+images, labels = load_images_and_labels('training_data')
 
-# Training the model using the faces and IDs
-recognizer.train(faces, np.array(ids))
+# Split the data into training and validation sets
+train_images, val_images, train_labels, val_labels = train_test_split(images, labels, test_size=0.2, random_state=42)
 
-# Saving the model into s_model.yml
+# Compile the model
+model.compile(optimizer=Adam(learning_rate=0.0001), loss='binary_crossentropy', metrics=['accuracy'])
+
+# Train the model with more epochs
+model.fit(train_images, train_labels, epochs=20, batch_size=32, validation_data=(val_images, val_labels))
+
+# Save the model into s_model.h5
 assure_path_exists('saved_model/')
-recognizer.write('saved_model/s_model.yml')
+model.save('saved_model/s_model.h5')
