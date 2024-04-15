@@ -1,0 +1,47 @@
+{% extends "layout.html" %}
+{% block body %}
+
+<section id="call-to-action">
+    <div class="container text-center" data-aos="zoom-in">
+        <h3>Capture Images to Train Model</h3>
+    </div>
+</section>
+
+<section id="service1">
+    <div class="container text-center">
+        <p>First ,You need to Enter person's name and then click on "Start Face Dataset Collection" which will start
+            capturing images.After this then click on "Train Madel On Collected Images" to train model over captured
+            images</p>
+    </div>
+    <div class="form">
+        <form action="/service1" method="post" role="form" class="datasetCollectionform">
+            <div class="form-group">
+                <input type="text" class="form-control" name="name" id="name" placeholder="Enter Name of Person">
+            </div>
+
+            <div class="text-center"><button type="submit" name="action" value="collect" >Start Face Dataset Collection</button></div>
+
+            <div class="text-center"><button type="submit" name="action" value="train" onclick="loading();">Train Madel On Collected Images</button></div>
+
+            <div id="loading"></div>
+
+            <div class="message">
+                {% with messages = get_flashed_messages()%}
+                {% if messages%}
+                {% for message in messages%}<p>{{message}}</p>{%endfor%}
+                {%endif%}
+                {%endwith%}
+            </div>
+        </form>
+    </div>
+    <script type="text/javascript">// <![CDATA[
+        function loading(){
+            $("#loading").show();
+            $("#content").hide();       
+        }
+// ]]></script>
+
+</section>
+
+
+{% endblock %}
